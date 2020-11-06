@@ -2,31 +2,38 @@ package main
 
 import "fmt"
 
-type Animal struct{
-	name string
+// 结构体字段可见性与json序列化
+
+// 大写开头可以公开访问，小写开头的表示私有
+type student struct{
+	ID 		int
+	Name 	string
 }
 
-func(a Animal)Move(){
-	fmt.Printf("Format: %s会动~\n", a.name)
+type class struct{
+	Title string
+	Students []student
 }
 
-type Dog struct{
-	Feet int8
-	*Animal // 匿名嵌套，而且嵌套的是一个结构体指针
-}
+func newStudent(id int, name string)student{
+	return student{
+		ID: id,
+		Name: name,
+	}
 
-func (d *Dog) Wang(){
-	fmt.Printf("Format: %s 会汪汪汪~\n",d.name)
 }
 
 func main(){
-	d1 := &Dog{
-		Feet: 4,
-		Animal : &Animal{
-			name: "乐乐",
-		},
+	// 创建一个班级变量c1
+	c1 := class{
+		Title: "银河骚男",
+		Students:make([]student, 0, 20),
 	}
+	for i:=0;i<10;i++{
+		tmpStu:= newStudent(i, fmt.Sprintf("format: stu%02d", i))
+		c1.Students = append(c1.Students, tmpStu)
+	}
+	fmt.Printf("format: %#v\n", c1)
 
-	d1.Move()
-	d1.Wang()
+	// Json序列化：GO语言中的数据->Json格式的字符串
 }
