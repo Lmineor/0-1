@@ -765,6 +765,86 @@ func main(){
 }
 ```
 
+### 嵌套结构体
+
+```go
+// 结构体嵌套
+type Address struct{
+	Provice 	string
+	City    	string
+	UpdateTime 	string
+}
+
+type Email struct{
+	Addr 		string
+	UpdateTime 	string
+}
+type Person struct{
+	Name     string
+	Gender   string
+	Age      int8
+	// Address  Address // 嵌套另外一个结构体
+	Address // 利用匿名结构体简化
+	Email
+}
+
+func main(){
+	p1 := Person{
+		Name:    "小王子",
+		Gender:  "男",
+		Age:     18,
+		Address: Address{
+			Provice: "山东",
+			City: "威海",
+			UpdateTime:"2020-9",
+		},
+		Email: Email{
+			Addr: "xiaoming@123.com",
+			UpdateTime:"2020-10",
+		},
+	}
+	fmt.Printf("%#v\n",p1)
+	fmt.Println(p1.Name, p1.Age, p1.Gender)
+	fmt.Println(p1.Address.Provice, p1.Address.City)
+	fmt.Println(p1.Provice, p1.City) // 直接访问匿名结构体中的字段
+	// fmt.Println(p1.UpdateTime) // Error
+	fmt.Println(p1.Email.UpdateTime) 
+}
+```
+
+### 实现继承
+
+```go
+type Animal struct{
+	name string
+}
+
+func(a Animal)Move(){
+	fmt.Printf("Format: %s会动~\n", a.name)
+}
+
+type Dog struct{
+	Feet int8
+	*Animal // 匿名嵌套，而且嵌套的是一个结构体指针
+}
+
+func (d *Dog) Wang(){
+	fmt.Printf("Format: %s 会汪汪汪~\n",d.name)
+}
+
+func main(){
+	d1 := &Dog{
+		Feet: 4,
+		Animal : &Animal{
+			name: "乐乐",
+		},
+	}
+
+	d1.Move()
+	d1.Wang()
+}
+```
+
 
 ## 接口
 

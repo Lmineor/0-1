@@ -2,24 +2,31 @@ package main
 
 import "fmt"
 
-// 结构体匿名字段
-
-// 非匿名
-type Person1 struct{
+type Animal struct{
 	name string
-	age  int8
 }
 
-// 匿名
-type Person struct{
-	string
-	int8
+func(a Animal)Move(){
+	fmt.Printf("Format: %s会动~\n", a.name)
+}
+
+type Dog struct{
+	Feet int8
+	*Animal // 匿名嵌套，而且嵌套的是一个结构体指针
+}
+
+func (d *Dog) Wang(){
+	fmt.Printf("Format: %s 会汪汪汪~\n",d.name)
 }
 
 func main(){
-	p1 := Person{
-		"小王子",
-		18,
+	d1 := &Dog{
+		Feet: 4,
+		Animal : &Animal{
+			name: "乐乐",
+		},
 	}
-	fmt.Println(p1.string, p1.int8)
+
+	d1.Move()
+	d1.Wang()
 }
