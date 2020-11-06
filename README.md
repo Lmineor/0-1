@@ -1,4 +1,4 @@
-# go
+# Go语言
 
 ## 变量
 
@@ -631,6 +631,9 @@ fmt.Printf("%v %p\n", a, &a)
 fmt.Printf("%v %p\n", ptr, ptr)
 ```
 
+## 类型别名和自定义类型
+
+
 
 ## 结构体
 
@@ -644,21 +647,124 @@ type person struct {
 
 ## 方法
 
+Go语言中的`方法（Method）`是一种作用于特定类型变量的函数，这种特定类型变量叫做`接收者（Receiver）`。类似于其他语言中的`this`，`self`
+
+方法格式定义如下：
 ```go
-type rect struct {
-	width, height int
+func (接收者变量 接收者类型) 方法名(参数列表)(返回参数){
+	函数体
+}
+```
+
+其中：
+- 接收者变量：接收者中的参数变量在命名时，官方建议使用接收者类型名的第一个小写字母，而不是self，this之类的命名。例如，Person类型的接收者变量应该命名为p，Connector类型的接收者变量应该命名为c。
+- 接收者类型：接收者类型和参数类似，可以是指针类型和非指针类型
+- 方法名、参数列表、返回参数：具体定义与函数格式相同。
+
+```go
+// 方法的定义示例
+
+type Person struct{
+	name string
+	age  int8
 }
 
-func (r *rect) area() int { // 指针类型的接收器
-	return r.width * r.height
+
+// NewPerson 是一个Person类型的构造函数
+func NewPerson(name string, age int8) *Person {
+	return &Person{
+		name: name,
+		age: age,
+	}
 }
 
-func (r rect) perim() int {  // 值类型的接收器
-	return 2*r.width + 2*r.height
+// Dream 为Person类型定义方法
+func (p Person)Dream(){
+	fmt.Printf("%s的梦想是学好Go语言\n", p.name)
+}
+
+
+// SetAge 指针接收者，表示接收者的类型是一个指针
+func (p *Person)SetAge(newAge int8){
+	p.age = newAge
+}
+
+// SetAge2 值接收者，表示接收者的类型是一个值
+func (p Person)SetAge2(newAge int8){
+	p.age = newAge
+}
+
+func main(){
+	p1 := NewPerson("小明", 18)
+	p1.Dream()
+
+	p1.SetAge(19)
+	fmt.Printf("%#v\n", p1)
+
+	p1.SetAge2(20)
+	fmt.Printf("%#v\n", p1)
 }
 ```
 
 可以为值类型或者指针类型的接收器定义方法。
+
+### 什么时候应该使用指针类型：
+
+1. 需要修改接收者中的值
+2. 接收者是拷贝代价较大的对象
+3. 保证一致性，如果有某个方法使用了指针接收者，那么其他对象也应该使用指针接收者。
+
+### 任意类型添加方法
+
+在Go语言中，接收者的类型可以是任何类型，不仅仅是结构体，任何类型都可以拥有方法。举例：
+我们基于内置的int类型使用type关键字可以定义新的自定义类型，然后为我们的自定义类型添加方法。
+
+> 非本地类型不能定义方法，也就是说我们不能给别的包的类型定义方法
+
+```go
+// 为任意类型添加方法
+
+// 基于内置的基本类型造一个我们自己的类型
+type myInt int
+
+func (m myInt)sayHi(){
+	fmt.Println("Hi")
+}
+
+func main(){
+	var m1 myInt
+	m1 = 100
+	m1.sayHi()
+}
+```
+
+## 结构体嵌套
+
+### 结构体匿名字段
+```go
+// 结构体匿名字段
+
+// 非匿名
+type Person1 struct{
+	name string
+	age  int8
+}
+
+// 匿名
+type Person struct{
+	string
+	int8
+}
+
+func main(){
+	p1 := Person{
+		"小王子",
+		18,
+	}
+	fmt.Println(p1.string, p1.int8)
+}
+```
+
 
 ## 接口
 
