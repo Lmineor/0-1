@@ -738,120 +738,6 @@ func main(){
 }
 ```
 
-## 结构体嵌套
-
-### 结构体匿名字段
-```go
-// 结构体匿名字段
-
-// 非匿名
-type Person1 struct{
-	name string
-	age  int8
-}
-
-// 匿名
-type Person struct{
-	string
-	int8
-}
-
-func main(){
-	p1 := Person{
-		"小王子",
-		18,
-	}
-	fmt.Println(p1.string, p1.int8)
-}
-```
-
-### 嵌套结构体
-
-```go
-// 结构体嵌套
-type Address struct{
-	Provice 	string
-	City    	string
-	UpdateTime 	string
-}
-
-type Email struct{
-	Addr 		string
-	UpdateTime 	string
-}
-type Person struct{
-	Name     string
-	Gender   string
-	Age      int8
-	// Address  Address // 嵌套另外一个结构体
-	Address // 利用匿名结构体简化
-	Email
-}
-
-func main(){
-	p1 := Person{
-		Name:    "小王子",
-		Gender:  "男",
-		Age:     18,
-		Address: Address{
-			Provice: "山东",
-			City: "威海",
-			UpdateTime:"2020-9",
-		},
-		Email: Email{
-			Addr: "xiaoming@123.com",
-			UpdateTime:"2020-10",
-		},
-	}
-	fmt.Printf("%#v\n",p1)
-	fmt.Println(p1.Name, p1.Age, p1.Gender)
-	fmt.Println(p1.Address.Provice, p1.Address.City)
-	fmt.Println(p1.Provice, p1.City) // 直接访问匿名结构体中的字段
-	// fmt.Println(p1.UpdateTime) // Error
-	fmt.Println(p1.Email.UpdateTime) 
-}
-```
-
-### 实现继承
-
-```go
-type Animal struct{
-	name string
-}
-
-func(a Animal)Move(){
-	fmt.Printf("Format: %s会动~\n", a.name)
-}
-
-type Dog struct{
-	Feet int8
-	*Animal // 匿名嵌套，而且嵌套的是一个结构体指针
-}
-
-func (d *Dog) Wang(){
-	fmt.Printf("Format: %s 会汪汪汪~\n",d.name)
-}
-
-func main(){
-	d1 := &Dog{
-		Feet: 4,
-		Animal : &Animal{
-			name: "乐乐",
-		},
-	}
-
-	d1.Move()
-	d1.Wang()
-}
-```
-
-### 结构体字段的可见性与Json序列化
-
-大写开头可以公开访问，小写开头的表示私有
-
-
-## 接口
-
 ## 切片（slice）
 
 一般用len来判断切片是否为空
@@ -880,3 +766,171 @@ func main() {
 	fmt.Println(g, len(g), cap(g))
 }
 ```
+
+## 包
+
+### 定义
+```go
+package 包名
+```
+
+注意:
+- 一个文件夹下只能有一个包,同样的包不能在多个文件夹下
+- 包名可以不和文件夹名一样,包名不能包含中横线`-`
+- 包名为main的包为应用程序入口,编译时不含main的包不会生成可执行文件
+
+### 导包
+
+当写的代码在$GOPATH目录下的话,我们导入的包的路径要从$GOPATH/src后面开始写起
+使用正斜线 `/`
+
+> 注意此时标识符的可见性
+
+不允许导入包而不使用
+不允许循环导入包
+
+#### 给包起别名
+
+```go
+import test_package "this/is/test/package1" // test_package 为包的别名
+```
+
+#### 匿名导入包
+
+```go
+import _ "this/is/test/package1" // test_package 为包的别名
+```
+
+## init()初始化函数
+
+在Go语言程序执行导入时会自动触发包内部`init()`函数.需要注意的是:`init()`函数没有参数也没返回值.`init()`函数在程序运行是自动被调用执行,不能在代码中主动调用它.
+比`main()`函数优先执行
+
+执行时机:
+```go
+全局声明-> init()->main()
+```
+
+## 接口
+
+`interface()` 就是一堆方法的集合
+
+### 接口定义
+
+```go
+type 接口类型名 interface{
+	方法名1(参数列表1) 返回值列表1
+	方法名2(参数列表2) 返回值列表2
+}
+```
+
+- 接口名:使用type将接口定义为自定义的类型名.Go语言的接口在命名时,一般会在单词后加er,如,有写操作的接口叫Writer
+- 方法名:当方法名首字母是大写且这个接口类型名首字母也是大写时,这个方法可以被接口所在的包之外的代码访问
+- 参数列表,返回值列表,:参数列表和返回值列表中的参数变量名可以省略
+
+
+
+### 接口实现的条件
+
+实现了接口的方法即可
+
+### 使用值接受者实现接口和使用指针实现接口的区别
+
+使用值接受者:类型的值和类型的指针都能够保存到接口变量中.
+使用指针接收者:只有类型指针能够保存到接口变量中
+
+举个例子
+
+使用值接收者:
+
+```go
+type dog struct{}
+
+type cat struct{}
+
+type person struct {
+	name string
+}
+
+func (d dog) say() {
+	fmt.Println("汪汪汪~")
+}
+
+func (d cat) say() {
+	fmt.Println("喵喵喵~")
+}
+
+func (p person) say() {
+	fmt.Println("啊啊啊~")
+}
+
+// 接口不管是什么类型,只负责要实现什么方法
+// 定义一个类型,一个抽象的类型,只要实现了say()这个方法的类型都可以称为sayer类型
+type sayer interface {
+	say()
+}
+
+// 接口不管是什么类型,只负责要实现什么方法
+func da(arg sayer) {
+	arg.say() // 不管传什么参数都调用say方法
+
+}
+
+func main() {
+	c1 := cat{}
+	da(c1)
+	d1 := dog{}
+	da(d1)
+	p1 := person{
+		name: "小明",
+	}
+	da(p1)
+}
+```
+使用指针接收者:
+
+```go
+// 使用指针接收者:只有类型指针能够保存到接口变量中
+func (p *person) move() {
+	fmt.Printf("%s在跑\n", p.name)
+}
+
+func main() {
+	var m mover
+	p1 := person{ // person类型的值
+		name: "小王子",
+		age:  18,
+	}
+	p2 := &person{ // person类型的指针
+		name: "小明",
+		age:  18,
+	}
+	m = p1 // 无法赋值,因为p1是person类型的值,没有实现mover接口
+	m = p2
+	m.move()
+}
+```
+
+### 接口的嵌套
+
+```go
+// 接口的嵌套
+type animal interface {
+	mover
+	sayer
+}
+
+type mover interface {
+	move()
+}
+
+type sayer interface {
+	say()
+}
+```
+
+###　空接口的定义
+
+空接口是指没有定义任何方法的接口．因此任何类型都实现了空接口
+
+举个例子：
