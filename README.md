@@ -1047,3 +1047,6 @@ func main() { // 开启一个主goroutine去执行main函数
 ### goroutine 调度
 
 GMP是Go语言运行时调度的实现.是go语言自己实现的一套调度系统.区别于操作系统调度OS线程.
+
+
+## channel
