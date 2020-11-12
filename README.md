@@ -1046,7 +1046,97 @@ func main() { // 开启一个主goroutine去执行main函数
 
 ### goroutine 调度
 
-GMP是Go语言运行时调度的实现.是go语言自己实现的一套调度系统.区别于操作系统调度OS线程.
+`GMP`是Go语言运行时调度的实现.是go语言自己实现的一套调度系统.区别于操作系统调度OS线程.
 
+- `G` 就是goroutine，里面除了存放本goroutine信息外，还有与所在P的绑定等信息。
+- `M（machine）`是Go运行时对操作系统内核线程的虚拟。M与内核线程一般是一一映射的关系，一个goroutine最终是要放到M上执行的。
+- `P`管理着一组goroutine队列，P里面会存储当前goroutine运行的上下文环境（函数指针，堆栈地址及地址边界）,P会对自己管理的goroutine队列做一些调度（比如把占用CPU时间较长的goroutine暂停、运行后续的goroutine等等），当自己的队列消费完了就去全局队列里取，如果全局队列里也消费完了会去其他P队列里抢任务。
+
+P与M一般也是一一对应的。他们的关系是：P管理着一组G挂载在M上运行。当一个G长久阻塞在一个M上时，runtime会新建一个M，阻塞G所在的P会把其他的G挂载在新建的M上，当旧的G阻塞完成或者认为其已经死掉时，回收旧的M。
+
+P的个数是通过`runtime.GOMAXPROCS`设定（最大256），Go1.5版本之后默认为物理线程数。在并发量大的时候会增加一些P和M，但不会太多，切换太频繁的话得不偿失。
+
+单从线程调度讲，Go语言比起其他语言的优势在于OS线程是由OS内核来调度的，`goroutine`则是由Go运行时（runtime）自己的调度器调度的，这个调度器使用一个称为`m:n`调度的技术（复用/调度m个goroutine到n个OS线程）。其一大特点是goroutine的调度是在用户态下完成的，不涉及内核态和用户态之间的频繁切换，包括内存的分配与释放，都是在用户态维护着一块大的内存池，不直接调用系统的malloc函数（除非内存池需要改变），成本比调度OS线程低很多。另一方面充分利用了多核的硬件资源。近似的把若干goroutine均分在物理线程上，再加上本身goroutine超轻量，以上种种保证了go调度方面的性能。
+
+
+```go
+
+runtime.GOMAXPROCS(1) // 设置当前程序并发时占用的CPU逻辑核心数
+```
+
+Go语言中操作系统线程和goroutine的关系：
+1. 一个操作系统线程对应用户态多个goroutine
+2. go程序可以同时使用多个操作系统线程。
+3. goroutine和OS线程是多对多的关系，即`m:n`
 
 ## channel
+
+Go的并发模型是CSP（Communicating Sequential Process），提倡通过通信共享内存而不是通过共享内存而实现通信。
+
+Go语言中的通道（channel）是一种特殊的类型。通道像一个传送带或者队列，总是遵循`FIFO`规则，保证收发数据的顺序。每一个通道都是具体类型的导管，也就是声明channel的时候需要为其指定元素类型。
+
+```go
+var 变量 chan 元素类型
+```
+
+例子
+
+```go
+var ch1 chan int	// 声明一个传递整型的通道
+var ch2 chan bool	// 声明一个传递布尔的通道
+var ch3 chan []int	// 声明一个传递int切片的通道
+```
+
+### 创建channel
+
+通道是**引用类型**，通道类型的空值是`nil`
+
+```go
+var ch chan int
+fmt.Println(ch) // nil
+```
+
+通道声明后需要使用make函数初始化之后才能使用
+
+```go
+make(chan 元素类型, [缓冲大小])
+```
+
+channel的缓冲大小是可选的
+
+```go
+ch4 := make(chan int)
+ch5 := make(chan bool)
+ch6 := make(chan []int)
+```
+
+### channel 的发送接收关闭
+
+有发送(send)，接收(receive)，关闭(close)三种操作
+发送、接收都使用<-符号。
+
+```go
+var ch1 chan int
+ch1 = make(chan int, 1)
+
+ch2 := make(chan int, 1) // 与上面两步效果一样
+
+ch1 <- 10
+x := <-ch1
+fmt.Println(x)
+close(ch1)
+```
+
+#### 发送&接收
+
+```go
+ch <- = 10 // 把10发送到通道中
+x := <- ch // 从通道中取值
+```
+
+### 有无缓冲区
+
+```go
+ch2 := make(chan int)   // 无缓冲区通道 又称为同步通道
+ch1 = make(chan int, 1) // 带缓冲区通道
+```
