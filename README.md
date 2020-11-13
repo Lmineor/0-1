@@ -1140,3 +1140,269 @@ x := <- ch // 从通道中取值
 ch2 := make(chan int)   // 无缓冲区通道 又称为同步通道
 ch1 = make(chan int, 1) // 带缓冲区通道
 ```
+
+### 一个demo
+```go
+// 指针
+package main
+
+import "fmt"
+
+/*
+两个goroutine
+	1. 生成0-100的数字发送发到ch1
+	2. 从ch1中取出数据计算他的平方，把结果发送到ch2中
+*/
+func producer(ch chan int) {
+	for i := 0; i < 100; i++ {
+		ch <- i
+	}
+	close(ch)
+}
+
+func consumer(ch1, ch2 chan int) {
+	for tmp := range ch1 {
+		ch2 <- tmp * tmp
+	}
+	close(ch2)
+}
+func main() {
+	ch1 := make(chan int, 100)
+	ch2 := make(chan int, 200)
+
+	go producer(ch1)
+	go consumer(ch1, ch2)
+
+	for tmp := range ch2 {
+		fmt.Println(tmp)
+	}
+
+}
+```
+
+### 限定只读只写
+```go
+func producer(ch chan<- int) { // 只写
+	for i := 0; i < 100; i++ {
+		ch <- i
+	}
+	close(ch)
+}
+
+func consumer(ch1 <-chan int, ch2 chan int) { // ch1 只读，ch2 只写
+	for tmp := range ch1 {
+		ch2 <- tmp * tmp
+	}
+	close(ch2)
+}
+```
+
+### 通道总结
+
+channel常见的异常总结
+
+| channel| nil |  非空  |空的  | 满了| 没满 |
+|   :-  |:-  |:-     |:-  |:- |:-   |
+|接收|阻塞|接收值|阻塞   |	接收值|接收值 |接收值
+|发送|阻塞|发送值|发送值|	发送值|阻塞|发送值|
+|关闭|panic|关闭成功，读完数据后返回零值|关闭成成，返回零值|关闭成成，读完数据后返回零值|关闭成功读完数据后返回零值|
+
+关闭已经关闭的`channel`也会引发`panic`
+
+## worker pool (goroutine池)
+
+控制goroutine数量，防止泄露或暴涨
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func worker(id int, jobs <-chan int, results chan<- int) {
+	for job := range jobs {
+		fmt.Printf("worker: %d, start job: %d\n", id, job)
+		results <- job * 2
+		time.Sleep(time.Millisecond * 500)
+		fmt.Printf("worker: %d, stop job: %d\n", id, job)
+	}
+}
+
+func main() {
+	jobs := make(chan int, 100)
+	results := make(chan int, 100)
+
+	// 开启3个goroutine
+	for j := 0; j < 3; j++ {
+		go worker(j, jobs, results)
+	}
+	// 发送5个任务
+	for i := 0; i < 5; i++ {
+		jobs <- i
+	}
+	close(jobs)
+
+	for i := 0; i < 5; i++ {
+		ret := <-results
+		fmt.Println(ret)
+	}
+}
+```
+
+### select多路复用
+
+在某些场景下，我们需要同时从多个通道接收数据。
+通道在接收数据时，如果没有数据可以接收将会发生阻塞。
+
+go内置了`select`关键字，类似于`switch`语句
+
+demo
+```go
+package main
+
+import "fmt"
+
+// select
+func main() {
+	ch := make(chan int, 1)
+	for i := 0; i < 10; i++ {
+		select {
+		case x := <-ch:
+			fmt.Println(x)
+		case ch <- i:
+		default:
+			fmt.Println("nothing")
+		}
+	}
+}
+// res
+0
+2
+4
+6
+8
+```
+
+使用select语句能提高代码的可读性
+
+- 可处理一个或多个channel的发送/接收操作
+- 如果多个case同时满足，select会随机选择一个
+- 对于没有case的select{}会一直等待。可用于阻塞main函数。
+
+## 并发安全和锁
+
+### 互斥锁
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+// 并发安全和锁
+// 多个goroutine并发操作全局变量x
+var (
+	x    int64
+	wg   sync.WaitGroup
+	lock sync.Mutex // 互斥锁
+)
+
+func add() {
+	for i := 0; i < 5000; i++ {
+		lock.Lock() // 加锁
+		x++
+		lock.Unlock() // 解锁
+	}
+	wg.Done()
+}
+func main() {
+	wg.Add(2)
+	go add()
+	go add()
+	wg.Wait()
+	fmt.Println(x) // 10000
+}
+```
+
+### 读写互斥锁
+
+读写锁分为两种：
+读锁和写锁。
+- 当一个goroutine获取读锁之后，其他的goroutine如果是获取读锁会继续获得锁。如果要是获取写锁就会等待；
+- 当一个goroutine获取写锁之后，其他的goroutine无论是获取读锁还是写锁都会继续等待
+
+示例
+读写都加锁
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+var (
+	x      int64
+	wg     sync.WaitGroup
+	lock   sync.Mutex
+	rwlock sync.RWMutex
+)
+
+func read() {
+	// lock.Lock()
+	rwlock.RLock()
+	time.Sleep(time.Millisecond)
+	// lock.Unlock()
+	rwlock.RUnlock()
+	wg.Done()
+}
+
+func write() {
+	// lock.Lock()
+	rwlock.Lock()
+	x = x + 1
+	// lock.Unlock()
+	rwlock.Unlock()
+	time.Sleep(time.Millisecond * 10)
+	wg.Done()
+}
+func main() {
+	start := time.Now()
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go read()
+	}
+	for j := 0; j < 10; j++ {
+		wg.Add(1)
+		go write()
+	}
+	wg.Wait()
+	fmt.Println(time.Now().Sub(start))
+}
+```
+
+注意：读写锁非常适合读多写少的场景。如果读和写的操作差别不大。读写锁的优势就发挥不出来。
+
+### sync.WaitGroup
+
+在go中可以使用`sync.WaitGroup`来实现并发任务的同步。
+`sync.WaitGroup`有以下几个方法
+
+|方法名|功能|
+|:-|	:-|
+|`(wg *WaitGroup)` `Add(delta int)`|计数器+delta|
+|`(wg *WaitGroup)` ` Done()`|计数器-1|
+|`(wg *WaitGroup)` `Wait(delta int)`|阻塞直到计数器变为0|
+
+`sync.WaitGroup`内部维护着一个计数器。
+
+### sync.Once
+
+较为进阶
+在编程的很多
