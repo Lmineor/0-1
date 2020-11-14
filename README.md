@@ -1405,4 +1405,59 @@ func main() {
 ### sync.Once
 
 较为进阶
-在编程的很多
+在编程的很多场景下我们需要确保某些操作在高并发的场景下只执行一次。例如只加载一次配置文件、只关闭一次通道等。
+
+Go语言中的`sync.Once`提供了解决方案。
+
+`sync.Once`只有一个do方法，其签名如下：
+
+```go
+func (o *Once) do(f func()){}
+```
+
+备注：如果要执行的函数f需要传递参数就需要搭配闭包来使用
+
+#### 加载配置文件示例
+
+### sync.Map
+
+Go语言中内置的map不是并发安全的。
+
+go内置了一个并发安全的map， 是空接口类型，不需要制定key和value的类型
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+// sync.Map 并发安全的map
+var m = make(map[int]int)
+var m2 = sync.Map{} // 加{}相当于初始化了
+var wg sync.WaitGroup
+
+// func get(key int) int {
+// 	return m[key]
+// }
+
+// func set(key int, value int) {
+// 	m[key] = value
+// }
+
+func main() {
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(i int) {
+			m2.Store(i, i+100)
+			value, _ := m2.Load(i)
+			fmt.Printf("key:%v, value:%v\n", i, value)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+```
+
+### 原子操作

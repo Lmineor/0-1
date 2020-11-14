@@ -1,39 +1,32 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
-// 结构体字段可见性与json序列化
+// sync.Map 并发安全的map
+var m = make(map[int]int)
+var m2 = sync.Map{} // 加{}相当于初始化了
+var wg sync.WaitGroup
 
-// 大写开头可以公开访问，小写开头的表示私有
-type student struct {
-	ID   int
-	Name string
-}
+// func get(key int) int {
+// 	return m[key]
+// }
 
-type class struct {
-	Title    string
-	Students []student
-}
-
-func newStudent(id int, name string) student {
-	return student{
-		ID:   id,
-		Name: name,
-	}
-
-}
+// func set(key int, value int) {
+// 	m[key] = value
+// }
 
 func main() {
-	// 创建一个班级变量c1
-	c1 := class{
-		Title:    "银河骚男",
-		Students: make([]student, 0, 20),
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(i int) {
+			m2.Store(i, i+100)
+			value, _ := m2.Load(i)
+			fmt.Printf("key:%v, value:%v\n", i, value)
+			wg.Done()
+		}(i)
 	}
-	for i := 0; i < 10; i++ {
-		tmpStu := newStudent(i, fmt.Sprintf("format: stu%02d", i))
-		c1.Students = append(c1.Students, tmpStu)
-	}
-	fmt.Printf("format: %#v\n", c1)
-
-	// Json序列化：GO语言中的数据->Json格式的字符串
+	wg.Wait()
 }
