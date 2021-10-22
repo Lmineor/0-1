@@ -17,6 +17,9 @@ func main() {
 
 func reverLinkList(head *LinkNode) *LinkNode {
 	p := head.Next
+	if p == nil {
+		return head
+	}
 	q := p.Next
 	p.Next = nil
 	for q != nil {
