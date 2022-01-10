@@ -6,13 +6,19 @@ Raft把consensus算法分解为3个独立的子问题：
 3. **Safety**: State Machine Safety
 
 # 1. 前置内容
+
 ## 1.1 raft集群节点个数
+
 一般为5个，此时可以容忍2个失效。
 
 ## 1.2节点的状态
+
 `leader`, `follower`, `candidate`，一般来说，只有一个leader，其余都是follower。
+
 ![图4](./img/raft_status.png)
+
 图4：各节点的状态。
+
 `Followers`：只响应来自其他节点的请求【只对leader和candidate做出响应】，如果没有收到其他节点的信息，则会变成candidate并且初始化一个**选举过程**。若该节点收到了客户端的请求，则会重定向至leader节点。
 `Candidate`：用来选举新的leader。如果收到大多数节点的投票，则会变成Leader。
 `Leader`：会一直工作到失败。其接受所有客户的请求，
@@ -146,7 +152,18 @@ Raft用心跳机制来出发leader选举。当节点启动时其身份为followe
 当谁也没有当上leader的时候：好几个follower都同时变成了candidate，则会发生平票的情况。此时若不加干涉，哪怕重新开始新的一轮选股，则仍有一定概率会发生平票，并且就这样僵持下去。
 Raft用了随机的选举过期时间（例如150-300ms）来确保很少的几率发生平票并且就算发生了也会很快被解决。
 ## 2.3 Log 复制
+
 ![log](./img/raft_log.png)
+
 图6：一个小格子代表一个log entry，格子上面的数字表示任期，下面的表示command。
 
 一旦选举出一个leader，则该leader就要服务于clients了。每个客户的请求都包含一个要被replicated state machines执行的指令。leader把该指令追加到自己的log中最为一个新的entry。然后同时给其他节点发送AppendEntries RPC请求来复制这个entry。当这个entry被其他节点安全的复制了【replicated】，然后leader才会把这个entry保存到自己的state machine中，然后才把结果返回给客户。若follower崩了或者运行缓慢又或者网络运行不稳定，则leader会进行无限制的重试，直到所有节点都完成存储。
+log entry包含：state machine command和任期号。log entry中的任期号用来检测log entry间的差异和保证【5个属性】。每一个log entry也有一个整型的索引来表名自己在整个log中的位置。
+Leader节点决定何时安全的保存log；保存后的log称为*committed*。Raft确保log的持久性保存和各节点的最终一致性
+
+> 原文这样写：Raft guarantees that committed entries are durable and will eventually be executed by all of the available state machines.。
+
+一条log entry被committed的条件是集群中大多数节点已经复制【replicated】了，例如图6的entry 7。当committed一条log entry的时候，该log entry前的所有未commit的日志都会被committed。2.4节会说明关于leader变化之后commit log的细节情况。leader保存着最新的将要被committed的index，同时还保存着之后的AppendEntries RPC中的index【没有明白啥意思】以便其他节点能够找到该index。一旦follower知道log entry在leader那被committed了，则它会把该log entry保存在自己的本地（local state machine）。
+
+Raft设计这种log机制来维持一种在不同节点的日志间的高度的连续化。不仅简化了系统的动作，而且使系统更加可预测化。
+## 2.4 Safety
