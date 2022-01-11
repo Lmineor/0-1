@@ -165,5 +165,23 @@ Leader节点决定何时安全的保存log；保存后的log称为*committed*。
 
 一条log entry被committed的条件是集群中大多数节点已经复制【replicated】了，例如图6的entry 7。当committed一条log entry的时候，该log entry前的所有未commit的日志都会被committed。2.4节会说明关于leader变化之后commit log的细节情况。leader保存着最新的将要被committed的index，同时还保存着之后的AppendEntries RPC中的index【没有明白啥意思】以便其他节点能够找到该index。一旦follower知道log entry在leader那被committed了，则它会把该log entry保存在自己的本地（local state machine）。
 
-Raft设计这种log机制来维持一种在不同节点的日志间的高度的连续化。不仅简化了系统的动作，而且使系统更加可预测化。
+Raft设计这种log机制来维持一种在不同节点的日志间的高度的连续化。不仅简化了系统的动作，而且使系统更加可预测化。该log机制同时也是raft安全机制的一个重要的组成部分。
+有如下属性：
+
+1. 如果两个不同的entry有着同样的index和term，那么他们会保存同样的command。 If two entries in different logs have the same index and term, then they store the same command.
+2. 如果不同日志中的两个entry具有相同的索引和term，则所有前面的entry中的日志都是相同的。 If two entries in different logs have the same index and term, then the logs are identical in all preceding entries.
+
+第一个属性表明一个leader在给定index和term的情况下会创建之多一个的log，而且一旦保存则不会更改了。
+第二个属性由AppendEntries进行的简易一致性检查来确保。当发送了一个AppendEntries RPC，leader会在其日志中包含新条目之前的条目的索引和期限。 
+如果follower用同样的index和term没有在自己的log中找到任意的一个entry，那么它会拒绝新的entry。
+总结下一致性检查：log的初始空状态满足**Log Matching Property**，每当扩展log时，一致性都会保留Log Matching Property。
+结果就是不管AppendEntries何时返回成功，leader都知道follower的log都和自己的新的entry相等。
+？？？ 奇怪，不明白
+
+经过一系列的正常操作，leader和follower的log是保持一致的，因此AppendEntries的一致性检查不会失效。然而，当leader崩掉的时候会让log不一致（老的leader可能没有完全复制log）。随着leader和follower的各种崩溃，这些不一致可能会愈演愈烈。图7说明了follower可能和新的leader的log不一样。follower可能会比leader的log entry少，同样，leader也有可能比follower的log少。差距随着任期的交替可能会逐渐变大。
+为了解决这个不一致的问题，leader强制follower复制自己的log。这就意味着follower的冲突的日志条目会被leader中的覆盖掉。2.4节会阐明当加上一个限制的时候这种方式是安全的。
+为了让follower日志和自己保持一致，leader需找到一致的最后一条log条目，follower需删除该条目之后的所有日志条目，然后把leader的该条目之后的所有日志条目给follower。所有这些操作都是为了响应 AppendEntries RPC 执行的一致性检查而发生的。leader为各个follower维护一个*nextIndex*，*nextIndex*是指给follower的下一条log的index。当一个leader第一次当leader时，它会将自己的最后一条log的下一条index作为所有的*nextIndex*（图7的11）.若follower和leader的log不一致，AppendEntries的一致性检查就会在AppendEntries RPC发生时失败。
+
+
+
 ## 2.4 Safety
