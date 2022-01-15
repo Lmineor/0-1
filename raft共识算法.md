@@ -188,3 +188,22 @@ Raft设计这种log机制来维持一种在不同节点的日志间的高度的�
 
 
 ## 2.4 Safety
+ 前一章说明了raft如何选择leader和复制log。然而，到现在也没有足够的证据表明state machine能够以同样的顺序执行同样的command。例如，当leader提交多条log entry时，follower可能已经失联了，之后这个follower可能会变成leader，会把前任leader的entry给覆盖掉。结果就是不同的state machine执行了不同的command。
+
+因此，该章节对raft算法进行了进一步的完善，即增加了leader选举的限制。该限制确保leader会包括以往任期的所有数据。
+
+### 2.4.1 选举限制
+
+在任何以选举leader为基础的共识算法中，leader最终必须存有所有已经commit的log。像有的共识算法，例如Viewstamped Replication，有可能不会包含所有的log。这些算法都包含了额外的机制来识别缺失的log然后给新的leader添加进去，这个过程要么在选举的过程中，要么在选举之后的一小段时间内。不过这些机制却增加了复杂度。对于raft来讲，在选举的时候raft使用了一种更加简单的方法来让新的leader包括之前任期的所有log，而不用把缺失的log添加到新的leader中了。
+
+这就意味着entry只要一个流动的方向：从leader到follower，leader从不会覆盖自己已有的log。
+
+raft使用投票来阻止candidate赢得选举，除非该candidate有所有committed的log。candidate需要和大多数的节点进行沟通以便赢得选举，也就意味着每一个committed的log需要在大多数的节点中存在。如果该candidate的log相对于其他log来讲是最新的，那么它就有所有committed的log。RequestVote RPC实现了这种限制：RPC包括了candidate的log的信息并且若投票节点的log比发起RequestVote RPC的节点的log还要新，那么投票节点会拒绝给RequestVote RPC的节点投票。
+
+raft会拿logs中的最后一条log的index和term，与请求中的log的index和term进行比较，来决定哪个最新。如果term不同，term越大越新；tem相同，index越大越新。
+
+### 2.4.2 Committing entries from previous terms
+
+2.3中的描述表明，当大多数节点commit entry后，leader会把entry给commit。如果leader在commit entry前崩掉了，往后的leader会尝试完成该replicate动作。但是，leader不能立即断定上一任期的条目虽已存储在大多数节点上但是否已提交。图8就表明了旧的log虽已被大多数节点存储，但仍有可能被将来的leader覆盖掉。
+
+为了解决图8出现的问题，raft不会通过计数来提交之前所有任期的log。只有leader的当前的任期的log会通过统计replicas来提交；一旦当前任期的某个entry通过这种方式提交了，那么该entry之前的所有entry都会被间接提交【Log Matching Property】。特定情况下leader可以安全的断定旧的log已经被commit（例如，如果entry被所有节点都存储了），但为了简单起见，raft还是采用了保守的方式。
