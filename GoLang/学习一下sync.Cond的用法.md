@@ -61,3 +61,74 @@ func main() {
 
 }
 ```
+
+上述代码实现了主线程对多个goroutine的通知的功能。  
+抛出一个问题：  
+主线程执行的时候，如果并不想触发所有的协程，想让不同的协程可以有自己的触发条件，应该怎么使用？  
+下面就是一个具体的需求：  
+有四个worker和一个master，worker等待master去分配指令，master一直在计数，计数到5的时候通知第一个worker，计数到10的时候通知第二个和第三个worker。  
+首先列出几种解决方式  
+1、所有worker循环去查看master的计数值，计数值满足自己条件的时候，触发操作 >>>>>>>>>弊端：无谓的消耗资源  
+2、用channel来实现，几个worker几个channel，eg:worker1的协程里<-channel(worker1)进行阻塞，计数值到5的时候，给worker1的channel放入值，  
+阻塞解除，worker1开始工作。 >>>>>>>弊端：channel还是比较适用于一对一的场景，一对多的时候，需要起很多的channel，不是很美观  
+3、用条件变量sync.Cond，针对多个worker的话，用broadcast，就会通知到所有的worker。
+
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+func main() {
+
+	mutex := sync.Mutex{}
+	var cond = sync.NewCond(&mutex)
+	mail := 1
+	go func() {
+		for count := 0; count <= 15; count++ {
+			time.Sleep(time.Second)
+			mail = count
+			cond.Broadcast()
+		}
+	}()
+	// worker1
+	go func() {
+		for mail != 5 { // 触发的条件，如果不等于5，就会进入cond.Wait()等待，此时cond.Broadcast()通知进来的时候，wait阻塞解除，进入下一个循环，此时发现mail != 5，跳出循环，开始工作。
+			cond.L.Lock()
+			cond.Wait()
+			cond.L.Unlock()
+		}
+		fmt.Println("worker1 started to work")
+		time.Sleep(3 * time.Second)
+		fmt.Println("worker1 work end")
+	}()
+	// worker2
+	go func() {
+		for mail != 10 {
+			cond.L.Lock()
+			cond.Wait()
+			cond.L.Unlock()
+		}
+		fmt.Println("worker2 started to work")
+		time.Sleep(3 * time.Second)
+		fmt.Println("worker2 work end")
+	}()
+	// worker3
+	go func() {
+		for mail != 10 {
+			cond.L.Lock()
+			cond.Wait()
+			cond.L.Unlock()
+		}
+		fmt.Println("worker3 started to work")
+		time.Sleep(3 * time.Second)
+		fmt.Println("worker3 work end")
+	}()
+
+	time.Sleep(20 * time.Second)
+}
+```
