@@ -1,3 +1,7 @@
+# AES简介
+
+高级加密标准（AES， Advanced Encryption Standard）为最常见的对称加密算法。
+
 参考： [AES五种加密模式](https://www.cnblogs.com/starwolf/p/3365834.html)
 
 分组密码有五种工作体制
