@@ -40,3 +40,4 @@ tar -jxv -f filename.tar.bz2 -C 欲解压缩的目录
 /home/lex/.bashrc
 /home/www/.bashrc
 ```
+正确与错误的均写入同一个文件
