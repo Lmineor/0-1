@@ -32,4 +32,11 @@ tar -jxv -f filename.tar.bz2 -C 欲解压缩的目录
 
 此时屏幕不会出现任何信息，因为刚刚执行的结果中，标准正确输出被重定向到了`list_right`文件中，而标准错误输出被重定向到了`list_err`文件中。
 
-## 将正确的输出
+## 将正确的输出在屏幕上显示，错误输出不显示
+利用黑洞 `/dev/null`，这个东西可以吃掉任何导向这个设备的数据。
+```bash
+[root@centos ~]# find /home -name .bashrc 2> /dev/null
+/home/gc/.bashrc
+/home/lex/.bashrc
+/home/www/.bashrc
+```
