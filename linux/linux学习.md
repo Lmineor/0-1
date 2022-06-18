@@ -41,3 +41,13 @@ tar -jxv -f filename.tar.bz2 -C 欲解压缩的目录
 /home/www/.bashrc
 ```
 正确与错误的均写入同一个文件
+```bash
+[root@centos ~]# find /home -name .bashrc >list 2>&1
+```
+
+## &&与||
+|指令下达|说明|
+|:-:|:-:|
+|cmd1&&cmd2|1.若cmd1执行完毕且正确执行（$?=0），则开始执行cmd2. 2. 若cmd1执行完毕且为错误($?!=0)，则cmd2不执行。
+|cmd1||cmd2|1.若cmd1执行完毕且正确执行，则cmd2不执行。2.若cmd1执行完毕且错误，则开始执行cmd2.|
+
