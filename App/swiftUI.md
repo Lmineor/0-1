@@ -76,4 +76,10 @@ struct ChildView: View {
 You won’t use `@EnvironmentObject` in this module, but you can learn more about it, as well as the other property wrappers, by visiting [Managing Model Data in Your App](https://developer.apple.com/documentation/swiftui/managing-model-data-in-your-app).
 
 
-## 
+## 生命周期
+
+SwiftUI有三个modifiers that respond to view life cycle events:
+-   `onAppear(perform:)` triggers actions any time the view appears on screen, even if it’s not the first time.
+-   `onDisappear(perform:)` triggers actions when a view disappears from screen.
+-   `task(priority:_:)` triggers actions that execute asynchronously when the view appears on screen.
+
